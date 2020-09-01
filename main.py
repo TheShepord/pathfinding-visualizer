@@ -172,7 +172,7 @@ class Scene(QGraphicsScene):
 def dijkstra(start: Vector2D, goal: Vector2D):
     return 0
 
-def A_Star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> list:
+def pathfind_a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> list:
     """
     descripption bla bla. Always optimal etc
     Uses modified version of A* algorithm (LINK) that doesn't remove node from frontier if a better path is found. This saves on
@@ -217,7 +217,7 @@ def A_Star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Ve
 
     return []
 
-def Greedy_BFS(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], int]) -> list:
+def pathfind_greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], int]) -> list:
     prev_node = dict()
 
     prev_node[start] = None
@@ -251,9 +251,10 @@ class Layout(QVBoxLayout):
         runButton = menubar.addMenu('RUN')
         runButton.addAction("A*")
         # runButton.addAction("Greedy BFS")
-
+        action_a_star = QAction("A*", lambda: self.execute(A_Star))
         # self.connect(runButton, SIGNAL("execute()"), execute)
-        runButton.triggered[QAction].connect(lambda: self.execute(A_Star))
+        runButton.addAction(action_a_star)
+        # runButton.triggered[QAction].connect(lambda: self.execute(A_Star))
         # runButton.triggered[QAction].connect(lambda: self.execute(Greedy_BFS))
         
         self.addWidget(menubar)
