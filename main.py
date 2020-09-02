@@ -5,12 +5,13 @@ import math
 from typing import Callable, NamedTuple
 import numpy as np
 
-from PyQt5.QtWidgets import QWidget, QApplication, QGraphicsScene, QGraphicsView, QVBoxLayout, QMenuBar, QAction
-from PyQt5.QtCore import QObject, pyqtSignal, QRect
-from PyQt5.QtGui import QPen, QColor, QBrush
+from PyQt5.QtWidgets import QWidget, QApplication, QGraphicsScene, QGraphicsView, QVBoxLayout, QMenuBar, QAction, QAbstractScrollArea
+from PyQt5.QtCore import QObject, pyqtSignal, QRect, Qt, QMargins, QPoint
+from PyQt5.QtGui import QPen, QColor, QBrush, QResizeEvent
 
 
 class Config:
+    """Program-wide system settings"""
     CELL_LENGTH = 40  # size of each cell to be displayed on-screen
     NUM_CELLS_X = 20
     NUM_CELLS_Y = 15
@@ -18,22 +19,26 @@ class Config:
     DIAGONALS = True  # can pathfinding move diagonally?
 
 class Pallete:
+    """Color representing each object"""
     searched = QColor(0, 206, 209)
     path = QColor(255, 255, 0)
     start = QColor(255, 20, 147)
     goal = QColor(0, 250, 154)
 
 class Cell(NamedTuple):
+    """aaa"""
     weight: int
     blocked: bool
 
 
 class Vector2D(NamedTuple):
+    """2D vector representing cartesian x and y positions"""
     x: int
     y: int
 
 
 class PriorityQueue:
+    """Priority queue implemented with Python's heap queue algorithm"""
     def __init__(self):
         self.heap = []
     
@@ -57,18 +62,21 @@ class PriorityQueue:
 
 
 def manhattan_distance(node: Vector2D, goal: Vector2D) -> float:
+    """Returns manhattan distance between two points, used as a heuristic."""
     dx = abs(node.x - goal.x)
     dy = abs(node.y - goal.y)
 
     return Config.HEURISTIC_WEIGHT*(dx + dy)
 
 def euclidean_distance(node: Vector2D, goal: Vector2D) -> float:
+    """Returns euclidean distance between two points, used as a heuristic."""
     dx = abs(node.x - goal.x)
     dy = abs(node.y - goal.y)
 
     return Config.HEURISTIC_WEIGHT*math.sqrt(dx*dx + dy*dy)
 
 def chebyshev_distance (node: Vector2D, goal: Vector2D) -> float:
+    """Returns chebyshev distance between two points, used as a heuristic."""
     dx = abs(node.x - goal.x)
     dy = abs(node.y - goal.y)
 
@@ -77,6 +85,7 @@ def chebyshev_distance (node: Vector2D, goal: Vector2D) -> float:
     return Config.HEURISTIC_WEIGHT*(dx + dy) + (diagonal_cost - 2*Config.HEURISTIC_WEIGHT)*min(dx, dy)
 
 def octile_distance (node: Vector2D, goal: Vector2D) -> float:
+    """Returns octile distance between two points, used as a heuristic."""
     dx = abs(node.x - goal.x)
     dy = abs(node.y - goal.y)
 
@@ -86,6 +95,7 @@ def octile_distance (node: Vector2D, goal: Vector2D) -> float:
 
 
 def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
+    """Travels down 'prev_node' dictionary starting from 'goal' to retrieve path taken until goal"""
     path = []
 
     prev = prev_node[goal]
@@ -95,9 +105,9 @@ def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
 
     return path
 
-class Communicate(QObject):
+# class Communicate(QObject):
     
-    cell_traversed = pyqtSignal(Vector2D, QColor)
+#     cell_traversed = pyqtSignal(Vector2D, QColor)
 
 
 # class Grid(QObject):
@@ -108,15 +118,16 @@ class Scene(QGraphicsScene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.c = Communicate()
-        self.c.cell_traversed.connect(self.color_cell)
+        # self.c = Communicate()
+        # self.c.cell_traversed.connect(self.color_cell)
 
-        self.initUI()
+        self.draw_grid()
         
         # initialize 2D grid of cell data
         self.grid = [[Cell(weight=1, blocked=False)]*Config.NUM_CELLS_X]*Config.NUM_CELLS_Y
 
         self.steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0]])
+
 
     def get_neighbors(self, cell: Vector2D) -> list:
         result = []
@@ -144,7 +155,8 @@ class Scene(QGraphicsScene):
         else:
             np.array([[0, 1], [0, -1], [1, 0], [-1, 0]])
 
-    def initUI(self) -> None:
+    def draw_grid(self) -> None:
+        self.clear()
 
         width = Config.CELL_LENGTH * Config.NUM_CELLS_X
         height = Config.CELL_LENGTH * Config.NUM_CELLS_Y
@@ -161,13 +173,31 @@ class Scene(QGraphicsScene):
             self.addLine(0, row, width, row)
 
     def color_cell(self, cell: Vector2D, color: QColor) -> None:
-        row = cell.y * Config.CELL_LENGTH
-        col = cell.x * Config.CELL_LENGTH
+        row = cell.y * Config.CELL_LENGTH + 1
+        col = cell.x * Config.CELL_LENGTH + 1
         
         pen = QPen(color, 1)
         brush = QBrush(color)
-        self.addRect(col, row, Config.CELL_LENGTH, Config.CELL_LENGTH, pen, brush)
-        
+        self.addRect(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2, pen, brush)
+
+
+class View(QGraphicsView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        # self.setSizeIncrement(Config.CELL_LENGTH, Config.CELL_LENGTH)
+
+        self.setViewportMargins(QMargins(0, 0, 0, 0))
+        self.centerOn(0,0)
+
+        self.setMinimumSize(Config.CELL_LENGTH*5,Config.CELL_LENGTH*5)
+        self.setBaseSize(Config.CELL_LENGTH*10,Config.CELL_LENGTH*10)
+
+
+
 
 def dijkstra(start: Vector2D, goal: Vector2D):
     return 0
@@ -183,6 +213,8 @@ def pathfind_a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Cal
     # if h(n) = cost from n to goal, which isn't always possible, A* only follows the best path
     # if h(n) >, not guaranteed to find shortest path, but can be faster
     # if h(n) >> g(n), A* basically becomes Greedy Best-First-Search
+
+    grid.draw_grid()
 
     frontier = PriorityQueue()  # nodes to be explored
     dist_from_goal = heuristic(start, goal)
@@ -218,6 +250,8 @@ def pathfind_a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Cal
     return []
 
 def pathfind_greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], int]) -> list:
+    grid.draw_grid()
+
     prev_node = dict()
 
     prev_node[start] = None
@@ -239,39 +273,102 @@ def pathfind_greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic:
 
     return reconstruct_path(goal, prev_node)
 
-
-
-# class View(QtWidgets.QGraphicsView):
-
 class Layout(QVBoxLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         menubar = QMenuBar()
-        runButton = menubar.addMenu('RUN')
-        runButton.addAction("A*")
-        # runButton.addAction("Greedy BFS")
-        action_a_star = QAction("A*", lambda: self.execute(A_Star))
-        # self.connect(runButton, SIGNAL("execute()"), execute)
-        runButton.addAction(action_a_star)
-        # runButton.triggered[QAction].connect(lambda: self.execute(A_Star))
-        # runButton.triggered[QAction].connect(lambda: self.execute(Greedy_BFS))
+        algorithm_button = menubar.addMenu("Algorithm")
+        action_a_star = QAction("A*", self)
+        action_a_star.triggered.connect(lambda: self.execute(pathfind_a_star))
+        algorithm_button.addAction(action_a_star)
+        action_greedy_bfs = QAction("Greedy BFS", self)
+        action_greedy_bfs.triggered.connect(lambda: self.execute(pathfind_greedy_bfs))
+        algorithm_button.addAction(action_greedy_bfs)
         
+        self.heuristic = manhattan_distance
+
+        heuristics_button = menubar.addMenu("Heuristic")
+        action_manhattan = QAction("Manhattan", self)
+        action_manhattan.triggered.connect(lambda: self.set_heuristic(manhattan_distance))
+        heuristics_button.addAction(action_manhattan)
+        action_euclidean = QAction("Euclidean", self)
+        action_euclidean.triggered.connect(lambda: self.set_heuristic(euclidean_distance))
+        heuristics_button.addAction(action_euclidean)
+        action_chebyshev = QAction("Chebyshev", self)
+        action_chebyshev.triggered.connect(lambda: self.set_heuristic(chebyshev_distance))
+        heuristics_button.addAction(action_chebyshev)
+        action_octile = QAction("Octile", self)
+        action_octile.triggered.connect(lambda: self.set_heuristic(octile_distance))
+        heuristics_button.addAction(action_octile)
+
+
         self.addWidget(menubar)
 
         self.scene = Scene()
-        view = QGraphicsView(self.scene)
+        view = View(self.scene)
         self.addWidget(view)
 
+        
+    
     def execute(self, pathfinder: Callable) -> None:
-        start = Vector2D(2,8)
-        goal = Vector2D(11, 3)
-
-        result = pathfinder(start, goal, self.scene, manhattan_distance)
+        result = pathfinder(start, goal, self.scene, self.heuristic)
 
         [self.scene.color_cell(cell, Pallete.path) for cell in result]
         self.scene.color_cell(start, Pallete.start)
         self.scene.color_cell(goal, Pallete.goal)
+        # layout.scene.draw_grid()
+
+    def set_heuristic(self, heuristic):
+        self.heuristic = heuristic
+
+# def resize_overload(*args, **kwargs):
+#     def wrapper():
+#         func()
+#     return wrapper
+        
+
+class Window(QAbstractScrollArea):
+    def __init__(self, layout, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.setLayout(layout)
+        
+        self.setSizeIncrement(Config.CELL_LENGTH, Config.CELL_LENGTH)
+
+        self.setViewportMargins(QMargins(0, 0, 0, 0))
+
+
+        # self.resize(layout.sizeHint())
+
+        # self.setMinimumSize(Config.CELL_LENGTH*5,Config.CELL_LENGTH*5)
+        # self.setBaseSize(Config.CELL_LENGTH*10,Config.CELL_LENGTH*10)
+        
+        # self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        
+    # @resize_overload
+    def resizeEvent(self, event):
+
+        # get largest multiple of the new width / new height that is divisible by CELL_LENGTH
+        nearest_w = (event.size().width() // Config.CELL_LENGTH) #* Config.CELL_LENGTH
+        nearest_h = (event.size().height() // Config.CELL_LENGTH)#* Config.CELL_LENGTH
+        print(nearest_w, nearest_h)
+
+        # self.resize(nearest_w,nearest_h)
+        Config.NUM_CELLS_X = nearest_w
+        Config.NUM_CELLS_Y = nearest_h - 1
+        layout.scene.draw_grid()
+        
+
+        # self.resize()
+        # class Config:
+        #     CELL_LENGTH = 40  # size of each cell to be displayed on-screen
+        #     NUM_CELLS_X = 20
+        #     NUM_CELLS_Y = 15
+        #     HEURISTIC_WEIGHT = 1  # scalar multiplier for heuristic return value
+        #     DIAGONALS = True  # can pathfinding move diagonally?
+        
 
 
 if __name__ == '__main__':
@@ -279,9 +376,8 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     layout = Layout()
-
-    w = QWidget()
-    w.setLayout(layout)
+    
+    w = Window(layout)
     w.show()
     
     sys.exit(app.exec_())
