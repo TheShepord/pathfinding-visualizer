@@ -11,15 +11,15 @@ from PyQt5.QtGui import QPen, QColor, QBrush, QResizeEvent
 
 
 class Config:
-    """Program-wide system settings"""
+    """Global system settings"""
     CELL_LENGTH = 40  # size of each cell to be displayed on-screen
     NUM_CELLS_X = 20
     NUM_CELLS_Y = 15
     HEURISTIC_WEIGHT = 1  # scalar multiplier for heuristic return value
-    DIAGONALS = True  # can pathfinding move diagonally?
+    DIAGONALS = False  # can pathfinding move diagonally?
 
 class Pallete:
-    """Color representing each object"""
+    """Color to draw each object"""
     searched = QColor(0, 206, 209)
     path = QColor(255, 255, 0)
     start = QColor(255, 20, 147)
@@ -95,14 +95,14 @@ def octile_distance (node: Vector2D, goal: Vector2D) -> float:
 
 
 def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
-    """Travels down 'prev_node' dictionary starting from 'goal' to retrieve path taken until goal"""
+    """Travels down 'prev_node' dictionary starting from 'goal' to retrieve final path"""
     path = []
 
     prev = prev_node[goal]
     while prev != None:
-        path.insert(0, prev)
+        path.append(prev)
         prev = prev_node[prev]
-
+    path = path.reverse()
     return path
 
 # class Communicate(QObject):
@@ -122,14 +122,16 @@ class Scene(QGraphicsScene):
         # self.c.cell_traversed.connect(self.color_cell)
 
         self.draw_grid()
+        self.init_start_goal()
         
         # initialize 2D grid of cell data
         self.grid = [[Cell(weight=1, blocked=False)]*Config.NUM_CELLS_X]*Config.NUM_CELLS_Y
 
-        self.steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0]])
+        self.set_diagonal()
 
 
     def get_neighbors(self, cell: Vector2D) -> list:
+        """Return neighbors to Vector2D inside the scene"""
         result = []
         
         curr_cell = np.array([cell.x, cell.y])
@@ -147,6 +149,7 @@ class Scene(QGraphicsScene):
         return result
 
     def cost(self, cell: Vector2D) -> float:
+        """Return weight of traversing 'cell'"""
         return self.grid[cell.x][cell.y].weight
 
     def set_diagonal(self) -> None:
@@ -179,6 +182,14 @@ class Scene(QGraphicsScene):
         pen = QPen(color, 1)
         brush = QBrush(color)
         self.addRect(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2, pen, brush)
+
+    def init_start_goal(self):
+        height = Config.NUM_CELLS_Y // 2
+
+        self.start = Vector2D(1, height)
+        self.goal = Vector2D(Config.NUM_CELLS_X - 1, height)
+
+        self.color_cell(self.start, )
 
 
 class View(QGraphicsView):
