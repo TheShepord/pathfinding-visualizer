@@ -6,7 +6,7 @@ from typing import Callable, NamedTuple
 import numpy as np
 
 from PyQt5.QtWidgets import QWidget, QApplication, QGraphicsScene, QGraphicsView, QVBoxLayout, QMenuBar, QAction, QAbstractScrollArea
-from PyQt5.QtCore import QObject, pyqtSignal, QRect, Qt, QMargins, QPoint
+from PyQt5.QtCore import QObject, pyqtSignal, QRect, Qt, QMargins, QPoint, QSize
 from PyQt5.QtGui import QPen, QColor, QBrush, QResizeEvent
 
 
@@ -14,7 +14,7 @@ class Config:
     """Global system settings"""
     CELL_LENGTH = 40  # size of each cell to be displayed on-screen
     NUM_CELLS_X = 20
-    NUM_CELLS_Y = 15
+    NUM_CELLS_Y = 10
     HEURISTIC_WEIGHT = 1  # scalar multiplier for heuristic return value
     DIAGONALS = False  # can pathfinding move diagonally?
 
@@ -105,12 +105,9 @@ def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
     path = path.reverse()
     return path
 
-# class Communicate(QObject):
-    
-#     cell_traversed = pyqtSignal(Vector2D, QColor)
 
-
-# class Grid(QObject):
+def flatten(list_of_lists: list) -> list:
+    return [y for x in list_of_lists for y in x]
 
 
 class Scene(QGraphicsScene):
@@ -120,7 +117,7 @@ class Scene(QGraphicsScene):
 
         # self.c = Communicate()
         # self.c.cell_traversed.connect(self.color_cell)
-
+        self.setItemIndexMethod(QGraphicsScene.NoIndex)
         self.draw_grid()
         self.init_start_goal()
         
@@ -128,6 +125,7 @@ class Scene(QGraphicsScene):
         self.grid = [[Cell(weight=1, blocked=False)]*Config.NUM_CELLS_X]*Config.NUM_CELLS_Y
 
         self.set_diagonal()
+
 
 
     def get_neighbors(self, cell: Vector2D) -> list:
@@ -153,18 +151,17 @@ class Scene(QGraphicsScene):
         return self.grid[cell.x][cell.y].weight
 
     def set_diagonal(self) -> None:
+        """Generates array of possible moves based on Config.DIAGONALS"""
         if Config.DIAGONALS:
-            self.steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]])
+            self.neighbor_steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]])
         else:
-            np.array([[0, 1], [0, -1], [1, 0], [-1, 0]])
+            self.neighbor_steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0]])
 
     def draw_grid(self) -> None:
-        self.clear()
-
+        """Draws """
         width = Config.CELL_LENGTH * Config.NUM_CELLS_X
         height = Config.CELL_LENGTH * Config.NUM_CELLS_Y
         self.setSceneRect(0, 0, width, height)
-        self.setItemIndexMethod(QGraphicsScene.NoIndex)
 
         # draw cells
         for x in range(0, Config.NUM_CELLS_X + 1):
@@ -175,21 +172,61 @@ class Scene(QGraphicsScene):
             row = y * Config.CELL_LENGTH
             self.addLine(0, row, width, row)
 
+    def resize_update(self) -> None:
+        self.clear()
+        self.draw_grid()
+        
+        new_grid = [[Cell(weight=1, blocked=False)]*Config.NUM_CELLS_X]*Config.NUM_CELLS_Y
+
+        if len(flatten(new_grid)) < len(flatten(self.grid)):
+            for i in range(len(new_grid)):
+                for j in range(len(new_grid[i])):
+                    new_grid[i][j] = self.grid[i][j]
+        else:
+            for i in range(len(self.grid)):
+                for j in range(len(self.grid[i])):
+                    new_grid[i][j] = self.grid[i][j]
+
+        
+        self.grid = new_grid
+
+        self.update_start_goal()
+
+
+
+
     def color_cell(self, cell: Vector2D, color: QColor) -> None:
-        row = cell.y * Config.CELL_LENGTH + 1
+        """Colors cell using the specified color"""
+        row = cell.y * Config.CELL_LENGTH + 1  # +1 so as to not paint over grid lines
         col = cell.x * Config.CELL_LENGTH + 1
         
         pen = QPen(color, 1)
         brush = QBrush(color)
-        self.addRect(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2, pen, brush)
+
+        self.addRect(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2, pen, brush)  # -2 so as to not paint over grid lines
 
     def init_start_goal(self):
-        height = Config.NUM_CELLS_Y // 2
-
+        """Initialize start and goal positions"""
+        height = (Config.NUM_CELLS_Y // 2) - 2
         self.start = Vector2D(1, height)
         self.goal = Vector2D(Config.NUM_CELLS_X - 1, height)
 
-        self.color_cell(self.start, )
+        self.color_cell(self.start, Pallete.start)
+        self.color_cell(self.goal, Pallete.goal)
+    
+    def update_start_goal(self):
+        """Update start and goal positions if they're out of bounds after a resize"""
+        if self.start.x >= Config.NUM_CELLS_X - 1:
+            self.start = Vector2D(Config.NUM_CELLS_X - 2, self.start.y)
+        if self.start.y >= Config.NUM_CELLS_Y - 1:
+            self.start = Vector2D(self.start.x, Config.NUM_CELLS_Y - 2)
+        if self.goal.x >= Config.NUM_CELLS_X - 1:
+            self.goal = Vector2D(Config.NUM_CELLS_X - 2, self.goal.y)
+        if self.goal.y >= Config.NUM_CELLS_Y - 1:
+            self.goal = Vector2D(self.goal.x, Config.NUM_CELLS_Y - 2)
+
+        self.color_cell(self.start, Pallete.start)
+        self.color_cell(self.goal, Pallete.goal)
 
 
 class View(QGraphicsView):
@@ -205,7 +242,8 @@ class View(QGraphicsView):
         self.centerOn(0,0)
 
         self.setMinimumSize(Config.CELL_LENGTH*5,Config.CELL_LENGTH*5)
-        self.setBaseSize(Config.CELL_LENGTH*10,Config.CELL_LENGTH*10)
+
+        # self.resize(Config.CELL_LENGTH*Config.NUM_CELLS_X,Config.CELL_LENGTH*Config.NUM_CELLS_Y)
 
 
 
@@ -313,13 +351,12 @@ class Layout(QVBoxLayout):
         action_octile.triggered.connect(lambda: self.set_heuristic(octile_distance))
         heuristics_button.addAction(action_octile)
 
-
+    
         self.addWidget(menubar)
 
         self.scene = Scene()
         view = View(self.scene)
         self.addWidget(view)
-
         
     
     def execute(self, pathfinder: Callable) -> None:
@@ -339,16 +376,13 @@ class Layout(QVBoxLayout):
 #     return wrapper
         
 
-class Window(QAbstractScrollArea):
+class Window(QWidget):
     def __init__(self, layout, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.setLayout(layout)
         
         self.setSizeIncrement(Config.CELL_LENGTH, Config.CELL_LENGTH)
-
-        self.setViewportMargins(QMargins(0, 0, 0, 0))
-
 
         # self.resize(layout.sizeHint())
 
@@ -361,16 +395,14 @@ class Window(QAbstractScrollArea):
     # @resize_overload
     def resizeEvent(self, event):
 
-        # get largest multiple of the new width / new height that is divisible by CELL_LENGTH
-        nearest_w = (event.size().width() // Config.CELL_LENGTH) #* Config.CELL_LENGTH
-        nearest_h = (event.size().height() // Config.CELL_LENGTH)#* Config.CELL_LENGTH
-        print(nearest_w, nearest_h)
+        # gets nearest width/height divisible by cell length. Subtractions to play nicely with border
+        nearest_w = (event.size().width() // Config.CELL_LENGTH) - 1
+        nearest_h = (event.size().height() // Config.CELL_LENGTH) - 2
 
-        # self.resize(nearest_w,nearest_h)
         Config.NUM_CELLS_X = nearest_w
-        Config.NUM_CELLS_Y = nearest_h - 1
-        layout.scene.draw_grid()
-        
+        Config.NUM_CELLS_Y = nearest_h
+        layout.scene.resize_update()
+
 
         # self.resize()
         # class Config:
