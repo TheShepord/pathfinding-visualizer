@@ -20,7 +20,7 @@ class CellType:
     path = QColor(255, 255, 0)
     start = QColor(255, 20, 147)
     goal = QColor(0, 250, 154)
-    blocked = QColor(47, 79, 79)
+    barrier = QColor(47, 79, 79)
     empty = QColor(255, 255, 255)
 
 

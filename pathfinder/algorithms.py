@@ -8,11 +8,13 @@ from pathfinder.graphics import Scene
 def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
     """Travels down 'prev_node' dictionary starting from 'goal' to retrieve final path"""
     path = []
-    prev = goal
+    prev = prev_node[goal]
     
     while prev != None:
         path.append(prev)
         prev = prev_node[prev]
+    
+    path = path[:-1]  # remove start from path
     path.reverse()
     return path
 

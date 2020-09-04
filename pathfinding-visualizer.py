@@ -2,6 +2,8 @@
 import sys
 from typing import Callable
 import numpy as np
+from time import sleep
+import threading
 
 # Third party imports
 from PyQt5.QtWidgets import QWidget, QApplication, QVBoxLayout, QMenuBar, QAction, QAbstractScrollArea
@@ -58,11 +60,19 @@ class Layout(QVBoxLayout):
     
     def execute(self, pathfinder: Callable) -> None:
         result = pathfinder(self.scene.start, self.scene.goal, self.scene, self.heuristic)
+        self.scene.clear_path()
 
         if result != None:
-            [self.scene.set_cell(current, Cell(val = CellType.path)) for current in result]
-
-        self.scene.repaint_cells()
+            for current_cell in result:
+                self.scene.set_cell(current_cell, Cell(val = CellType.path))
+                # threading.Thread(target=self.scene.color_cell, args=(current_cell,)).start()
+                self.scene.color_cell(current_cell, True)
+                # sleep(0.1)
+        self.scene.set_cell(self.scene.start, Cell(val = CellType.start))
+        self.scene.set_cell(self.scene.goal, Cell(val = CellType.goal))
+        self.scene.color_cell(self.scene.start)
+        self.scene.color_cell(self.scene.goal)
+        # self.scene.repaint_cells()
         # [self.scene.color_cell(cell, Pallete.path) for cell in result]
         # self.scene.color_cell(start, Pallete.start)
         # self.scene.color_cell(goal, Pallete.goal)
