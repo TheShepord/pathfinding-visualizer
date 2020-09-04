@@ -25,32 +25,35 @@ class Layout(QVBoxLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        menubar = QMenuBar()
-        algorithm_button = menubar.addMenu("Algorithm")
-        action_a_star = QAction("A*", self)
-        action_a_star.triggered.connect(lambda: self.execute(algorithm.a_star))
-        algorithm_button.addAction(action_a_star)
-        action_greedy_bfs = QAction("Greedy BFS", self)
-        action_greedy_bfs.triggered.connect(lambda: self.execute(algorithm.greedy_bfs))
-        algorithm_button.addAction(action_greedy_bfs)
+        # Adding menubar
+        self.menubar = QMenuBar()
+
+        # Algorithms widget
+        self.algorithm_button = menubar.addMenu("Algorithm")
+        self.action_a_star = QAction("A*", self)
+        self.action_a_star.triggered.connect(lambda: self.execute(algorithm.a_star))
+        self.algorithm_button.addAction(self.action_a_star)
+        self.action_greedy_bfs = QAction("Greedy BFS", self)
+        self.action_greedy_bfs.triggered.connect(lambda: self.execute(algorithm.greedy_bfs))
+        self.algorithm_button.addAction(self.action_greedy_bfs)
         
-        self.heuristic = heuristics.manhattan
+        self.heuristic = heuristics.manhattan # Default heuristic
 
-        heuristics_button = menubar.addMenu("Heuristic")
-        action_manhattan = QAction("Manhattan", self)
-        action_manhattan.triggered.connect(lambda: self.set_heuristic(heuristics.manhattan))
-        heuristics_button.addAction(action_manhattan)
-        action_euclidean = QAction("Euclidean", self)
-        action_euclidean.triggered.connect(lambda: self.set_heuristic(heuristics.euclidean))
-        heuristics_button.addAction(action_euclidean)
-        action_chebyshev = QAction("Chebyshev", self)
-        action_chebyshev.triggered.connect(lambda: self.set_heuristic(heuristics.chebyshev))
-        heuristics_button.addAction(action_chebyshev)
-        action_octile = QAction("Octile", self)
-        action_octile.triggered.connect(lambda: self.set_heuristic(heuristics.octile))
-        heuristics_button.addAction(action_octile)
-
-    
+        # Heuristics widget
+        self.heuristics_button = menubar.addMenu("Heuristic")
+        self.action_manhattan = QAction("Manhattan", self)
+        self.action_manhattan.triggered.connect(lambda: self.set_heuristic(heuristics.manhattan))
+        self.heuristics_button.addAction(self.action_manhattan)
+        self.action_euclidean = QAction("Euclidean", self)
+        self.action_euclidean.triggered.connect(lambda: self.set_heuristic(heuristics.euclidean))
+        self.heuristics_button.addAction(self.action_euclidean)
+        self.action_chebyshev = QAction("Chebyshev", self)
+        self.action_chebyshev.triggered.connect(lambda: self.set_heuristic(heuristics.chebyshev))
+        self.heuristics_button.addAction(self.action_chebyshev)
+        self.action_octile = QAction("Octile", self)
+        self.action_octile.triggered.connect(lambda: self.set_heuristic(heuristics.octile))
+        self.heuristics_button.addAction(self.action_octile)
+        
         self.addWidget(menubar)
 
         self.scene = Scene()
@@ -59,33 +62,22 @@ class Layout(QVBoxLayout):
         
     
     def execute(self, pathfinder: Callable) -> None:
-        result = pathfinder(self.scene.start, self.scene.goal, self.scene, self.heuristic)
+        """Executes selected pathfinding algorithm using currently-selected heuristic"""
         self.scene.clear_path()
+        result, explored = pathfinder(self.scene.start, self.scene.goal, self.scene, self.heuristic)
 
-        if result != None:
-            for current_cell in result:
-                self.scene.set_cell(current_cell, Cell(val = CellType.path))
-                # threading.Thread(target=self.scene.color_cell, args=(current_cell,)).start()
-                self.scene.color_cell(current_cell, True)
-                # sleep(0.1)
-        self.scene.set_cell(self.scene.start, Cell(val = CellType.start))
-        self.scene.set_cell(self.scene.goal, Cell(val = CellType.goal))
-        self.scene.color_cell(self.scene.start)
-        self.scene.color_cell(self.scene.goal)
-        # self.scene.repaint_cells()
-        # [self.scene.color_cell(cell, Pallete.path) for cell in result]
-        # self.scene.color_cell(start, Pallete.start)
-        # self.scene.color_cell(goal, Pallete.goal)
-        # layout.scene.draw_grid()
+        if explored != []:
+            # Draws explored tiles. Multi-threading used for tiles to draw sequentially
+            draw_explored_thread = threading.Thread(target=self.scene.draw_explored, args=(explored, True))
+            draw_explored_thread.start()
+
+        if result != []:
+            # Draws path. Multi-threading used for path to draw sequentially
+            threading.Thread(target=self.scene.draw_path, args=(result, draw_explored_thread, True)).start()
 
     def set_heuristic(self, heuristic):
         self.heuristic = heuristic
 
-# def resize_overload(*args, **kwargs):
-#     def wrapper():
-#         func()
-#     return wrapper
-        
 
 class Window(QWidget):
     def __init__(self, layout, *args, **kwargs):
@@ -95,20 +87,11 @@ class Window(QWidget):
         
         self.setSizeIncrement(Config.CELL_LENGTH, Config.CELL_LENGTH)
 
-        # self.resize(layout.sizeHint())
-
-        # self.setMinimumSize(Config.CELL_LENGTH*5,Config.CELL_LENGTH*5)
-        # self.setBaseSize(Config.CELL_LENGTH*10,Config.CELL_LENGTH*10)
-        
-        # self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        
-    # @resize_overload
     def resizeEvent(self, event):
 
         # gets nearest width/height divisible by cell length
-        nearest_w = event.size().width() // Config.CELL_LENGTH #-1
-        nearest_h = event.size().height() // Config.CELL_LENGTH #-2
+        nearest_w = event.size().width() // Config.CELL_LENGTH
+        nearest_h = event.size().height() // Config.CELL_LENGTH - 1
         
         Config.NUM_CELLS_X = nearest_w
         Config.NUM_CELLS_Y = nearest_h

@@ -1,9 +1,12 @@
+# Standard library imports
+from time import sleep
+import threading
+
 # Third party imports
 import numpy as np
 from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsObject
 from PyQt5.QtCore import QRect, QRectF, Qt, QMargins, QPropertyAnimation
 from PyQt5.QtGui import QPen, QColor, QBrush, QMouseEvent, QPainter
-import time
 
 # Local application imports
 from . import Config, CellType, Cell, Vector2D, PriorityQueue
@@ -115,6 +118,7 @@ class Scene(QGraphicsScene):
             self.addLine(0, row, width, row)
 
     def resize_update(self) -> None:
+        """Resizes grid and keeps 'start' and 'goal' cells inside of view"""
         self.clear()
         self.draw_grid()
 
@@ -140,27 +144,31 @@ class Scene(QGraphicsScene):
         color = self.cells[coord].val
         pen = QPen(color, 1)
         brush = QBrush(color)
-        # if color == CellType.goal:
-        #     print(coord)
 
-        
-        # draw_delay = 500
-        
         if animate:
-            rect = RectObject(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2, pen, brush)
-            # rect = QRect(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2)
-            anim = QPropertyAnimation(rect, b'scale')
-            anim.setDuration(100)
-            anim.setStartValue(0)
-            anim.setEndValue(1)
-            anim.start()
-            self.animations[anim] = 0
-            self.addItem(rect)
+            threading.Thread (
+                target=self.animate_rect, \
+                args=(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2, pen, brush), \
+                daemon=True \
+            ).start()
+
         else:
             self.addRect(col, row, Config.CELL_LENGTH - 2, Config.CELL_LENGTH - 2, pen, brush)  # -2 so as to not paint over grid lines
 
-    
-    def repaint_cells(self):
+    def animate_rect(self, x: int, y: int, w: int, h: int, pen: QPen, brush: QBrush, duration: float = 0.125, n_steps: float = 16) -> list:
+        """Creates RectObject that transposes from dimensions 0 x 0 to 'w' x 'h' in 'n_steps' steps over the course of 'duration' seconds"""
+        scale = 0.0
+
+        time_step = duration / n_steps
+        scale_step = 1.0 / n_steps
+
+        while scale <= 1.0:
+            rect = RectObject(x + w/2*(1-scale), y + h/2*(1-scale), w*scale, h*scale, pen, brush)
+            self.addItem(rect)
+            sleep(time_step)
+            scale += scale_step
+
+    def repaint_cells(self) -> None:
         """Repaints all cells"""
         self.set_cell(self.start, Cell(val = CellType.start))
         self.set_cell(self.goal, Cell(val = CellType.goal))
@@ -168,7 +176,8 @@ class Scene(QGraphicsScene):
             for y in range(Config.NUM_CELLS_Y):
                 self.color_cell(Vector2D(x,y))
 
-    def clear_path(self):
+    def clear_path(self) -> None:
+        """Removes searched and explored-type cells from grid"""
         for x in range(Config.NUM_CELLS_X):
             for y in range(Config.NUM_CELLS_Y):
                 if self.cells[Vector2D(x,y)].val == CellType.path \
@@ -176,7 +185,21 @@ class Scene(QGraphicsScene):
                     self.set_cell(Vector2D(x,y), Cell(val = CellType.empty))
                     self.color_cell(Vector2D(x,y))
 
-    # def animate_path(self):
+    def draw_explored(self, explored: list, animate: bool = False):
+        for current_cell in explored:
+            if self.cell_type(current_cell) not in (CellType.goal, CellType.start):
+                self.set_cell(current_cell, Cell(val = CellType.searched))
+                self.color_cell(current_cell, animate)
+                sleep(0.03125)
+
+    def draw_path(self, path: list, prev_thread: threading.Thread = None, animate: bool = False) -> None:
+        if prev_thread:
+            prev_thread.join()
+
+        for current_cell in path:
+            self.set_cell(current_cell, Cell(val = CellType.path))
+            self.color_cell(current_cell, animate)
+            sleep(0.03125)
 
 
 class View(QGraphicsView):
@@ -191,19 +214,19 @@ class View(QGraphicsView):
 
         self.setMinimumSize(Config.CELL_LENGTH*5,Config.CELL_LENGTH*5)
 
-        self.painting_cell = CellType.barrier  # What type of cell was last clicked?
+        self.painting_cell = CellType.barrier  # What type of cell was last clicked? Default is barrier.
         self.setMouseTracking(False)  # Only track mouse movements while mousekey down
 
-        # self.resize(Config.CELL_LENGTH*Config.NUM_CELLS_X,Config.CELL_LENGTH*Config.NUM_CELLS_Y)
 
     def mousePressEvent(self, event):
+        """If user clicked, they're either drawing a barrier, removing a barrier, wanting to move start, or wanting to move goal"""
         x = event.x() // Config.CELL_LENGTH
         y = event.y() // Config.CELL_LENGTH
-        self.scene().clear_path()
 
         if self.scene().cell_type(Vector2D(x,y)) == CellType.empty:
             # If user clicked on an empty cell, they're trying to draw barriers
             self.painting_cell = CellType.barrier
+            
         elif self.scene().cell_type(Vector2D(x,y)) == CellType.barrier:
             # If user clicked on an barrier, they're trying to remove barriers
             self.painting_cell = CellType.empty
@@ -214,25 +237,26 @@ class View(QGraphicsView):
             # If user clicked on goal, they're trying to move goal
             self.painting_cell = CellType.goal
         
-        if self.painting_cell == CellType.barrier or self.painting_cell == CellType.empty:
+        if self.painting_cell in (CellType.barrier, CellType.empty):
             if self.scene().start != Vector2D(x, y) and self.scene().goal != Vector2D(x, y):
                 self.scene().set_cell(Vector2D(x, y), Cell(val = self.painting_cell))
-
-        self.scene().color_cell(Vector2D(x,y), True)
+                self.scene().color_cell(Vector2D(x,y), True)
     
     
     def mouseMoveEvent(self, event):
+        """If user holding down mouse button, they're either drawing barriers, removing barriers, moving start, or moving goal"""
         x = event.x() // Config.CELL_LENGTH
         y = event.y() // Config.CELL_LENGTH
         
-        if self.painting_cell == CellType.barrier or self.painting_cell == CellType.empty:
+        if self.painting_cell in (CellType.barrier, CellType.empty):
+            # drawing/removing barriers
             if self.scene().start != Vector2D(x, y) and self.scene().goal != Vector2D(x, y):
                 self.scene().set_cell(Vector2D(x, y), Cell(val = self.painting_cell))
                 self.scene().color_cell(Vector2D(x,y), True)
 
         elif self.painting_cell == CellType.start:
-             # start and goal can't overlap, and new location must be in bounds
-            if self.scene().goal != Vector2D(x,y) and in_bounds(Vector2D(x,y)):
+            # Moving start
+            if self.scene().goal != Vector2D(x,y) and in_bounds(Vector2D(x,y)):  # start and goal can't overlap, and new location must be in bounds
                 self.scene().set_cell(self.scene().start, Cell(val = CellType.empty))
                 self.scene().color_cell(self.scene().start)
                 self.scene().start = Vector2D(x, y)
@@ -240,8 +264,8 @@ class View(QGraphicsView):
                 self.scene().color_cell(self.scene().start)
 
         elif self.painting_cell == CellType.goal:
-            # start and goal can't overlap, and new location must be in bounds
-            if self.scene().start != Vector2D(x,y) and in_bounds(Vector2D(x,y)):
+            # Moving goal
+            if self.scene().start != Vector2D(x,y) and in_bounds(Vector2D(x,y)):  # start and goal can't overlap, and new location must be in bounds
                 self.scene().set_cell(self.scene().goal, Cell(val = CellType.empty))
                 self.scene().color_cell(self.scene().goal)
                 self.scene().goal = Vector2D(x, y)
