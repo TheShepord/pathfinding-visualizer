@@ -29,18 +29,24 @@ class Layout(QVBoxLayout):
         self.menubar = QMenuBar()
 
         # Algorithms widget
-        self.algorithm_button = menubar.addMenu("Algorithm")
+        self.algorithm_button = self.menubar.addMenu("Algorithm")
         self.action_a_star = QAction("A*", self)
         self.action_a_star.triggered.connect(lambda: self.execute(algorithm.a_star))
         self.algorithm_button.addAction(self.action_a_star)
         self.action_greedy_bfs = QAction("Greedy BFS", self)
         self.action_greedy_bfs.triggered.connect(lambda: self.execute(algorithm.greedy_bfs))
         self.algorithm_button.addAction(self.action_greedy_bfs)
+        self.action_breadth_fs = QAction("Breadth-First Search", self)
+        self.action_breadth_fs.triggered.connect(lambda: self.execute(algorithm.breadth_fs))
+        self.algorithm_button.addAction(self.action_breadth_fs)
+        self.action_depth_fs = QAction("Depth-First Search", self)
+        self.action_depth_fs.triggered.connect(lambda: self.execute(algorithm.depth_fs))
+        self.algorithm_button.addAction(self.action_depth_fs)
         
         self.heuristic = heuristics.manhattan # Default heuristic
 
         # Heuristics widget
-        self.heuristics_button = menubar.addMenu("Heuristic")
+        self.heuristics_button = self.menubar.addMenu("Heuristic")
         self.action_manhattan = QAction("Manhattan", self)
         self.action_manhattan.triggered.connect(lambda: self.set_heuristic(heuristics.manhattan))
         self.heuristics_button.addAction(self.action_manhattan)
@@ -54,26 +60,42 @@ class Layout(QVBoxLayout):
         self.action_octile.triggered.connect(lambda: self.set_heuristic(heuristics.octile))
         self.heuristics_button.addAction(self.action_octile)
         
-        self.addWidget(menubar)
+        self.addWidget(self.menubar)
 
         self.scene = Scene()
         view = View(self.scene)
         self.addWidget(view)
+
+        self.draw_explored = threading.Thread()
+        self.draw_result = threading.Thread()
         
-    
     def execute(self, pathfinder: Callable) -> None:
-        """Executes selected pathfinding algorithm using currently-selected heuristic"""
-        self.scene.clear_path()
-        result, explored = pathfinder(self.scene.start, self.scene.goal, self.scene, self.heuristic)
+        """Executes given pathfinding algorithm using currently-selected heuristic, drawing tiles to screen"""
+        if not self.draw_explored.is_alive() and not self.draw_result.is_alive():
+            result, explored = pathfinder(self.scene.start, self.scene.goal, self.scene, self.heuristic)
 
-        if explored != []:
-            # Draws explored tiles. Multi-threading used for tiles to draw sequentially
-            draw_explored_thread = threading.Thread(target=self.scene.draw_explored, args=(explored, True))
-            draw_explored_thread.start()
+            self.scene.clear_path()  # Remove currently-drawn path tiles
+            if explored != []:
+                # Draws explored tiles. Multi-threading used for tiles to draw sequentially
+                self.draw_explored = threading.Thread( \
+                    target=self.scene.draw_cell_sequence, \
+                    args=(explored, CellType.searched, True), \
+                    daemon = True
+                )
+                self.draw_explored.start()
 
-        if result != []:
-            # Draws path. Multi-threading used for path to draw sequentially
-            threading.Thread(target=self.scene.draw_path, args=(result, draw_explored_thread, True)).start()
+            if result != []:
+                # Draws path. Multi-threading used for path to draw sequentially
+                # self.draw_explored is fed as 'prev_thread' so that path is drawn after explored tiles
+                self.draw_result = threading.Thread( \
+                    target=self.scene.draw_cell_sequence, \
+                    args=(result, CellType.path, True, self.draw_explored), \
+                    daemon = True
+                )
+                self.draw_result.start()
+            
+            self.scene.set_cell(self.scene.start, Cell(val = CellType.start))
+            self.scene.set_cell(self.scene.goal, Cell(val = CellType.goal))
 
     def set_heuristic(self, heuristic):
         self.heuristic = heuristic
