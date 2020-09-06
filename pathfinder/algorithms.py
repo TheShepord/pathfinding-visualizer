@@ -2,7 +2,7 @@
 from typing import Callable
 
 # Local application imports
-from . import Vector2D, PriorityQueue, Cell, CellType
+from . import Vector2D, Queue, PriorityQueue, Stack, Cell, CellType
 from pathfinder.graphics import Scene
 import time
 
@@ -18,6 +18,17 @@ def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
     path = path[:-1]  # remove 'start' from path
     path.reverse()
     return path
+
+def get_best_node(nodes: list, goal: Vector2D, heuristic: Callable[[Vector2D, Vector2D], float]):
+    selector = PriorityQueue()
+    for node in nodes:
+        dist_from_goal = heuristic(node, goal)
+        selector.put(node, dist_from_goal)
+    if selector.empty():
+        return None
+    else:
+        return(selector.get())
+
 
 def dijkstra(start: Vector2D, goal: Vector2D):
     return 0
@@ -36,12 +47,12 @@ def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Ve
 
     frontier = PriorityQueue()  # nodes to be explored
     dist_from_goal = heuristic(start, goal)  # estimate of cost to reach goal from current node
-    frontier.put(start, dist_from_goal, dist_from_goal)
 
     prev_node = dict()  # maps n to node that precedes it in cheapest currently-known path from start to n
     cost_so_far = dict()  # maps n to cost of cheapest currently-known path from start to n
-    explored = []  # keeps track of previously explored nodes
+    explored = []  # keeps track of previously explored nodes, to be drawn later
 
+    frontier.put(start, dist_from_goal, dist_from_goal)
     prev_node[start] = None
     cost_so_far[start] = 0
 
@@ -53,7 +64,7 @@ def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Ve
 
         explored.append(current)
 
-        for neighbor in grid.get_neighbors(current):
+        for neighbor in grid.get_unexplored_neighbors(current):
             path_cost =  cost_so_far[current] + grid.cost(neighbor)  # cost of path to 'neighbor' going through 'current'
 
             if (neighbor not in cost_so_far) or (path_cost < cost_so_far[neighbor]): # if this path reaches node 'neighbor' faster than some previous path
@@ -69,30 +80,82 @@ def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Ve
 
 def greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], int]) -> list:
     """
-    A case of A* where cost_so_far is negligible in relation to heuristic. At every step, finds next best step based on heuristic.
-    # Keeps track of previously-explored paths to prevent hanging
+    Greedy Best-First Search
+    Essentially A* but cost_so_far is negligible in relation to heuristic.
     """
-    prev_node = dict()
+    frontier = PriorityQueue()  # nodes to be explored
+    prev_node = dict()  # maps n to node that precedes it in cheapest currently-known path from start to n
+    explored = []  # keeps track of previously explored nodes, to be drawn later
+
+    frontier.put(start, heuristic(start, goal))
+    prev_node[start] = None
+
+    while not frontier.empty():
+        current = frontier.get()
+
+        if current == goal:  # solution found!
+            return (reconstruct_path(goal, prev_node), explored[1:])  # [1: to remove 'start']
+
+        grid.set_cell(current, Cell(val = CellType.searched))
+        explored.append(current)
+        
+        for neighbor in grid.get_unexplored_neighbors(current):
+            frontier.put(neighbor, heuristic(neighbor, goal))
+            prev_node[neighbor] = current
+
+    
+    # If frontier empty but goal was never reached, no solution was found
+    return ([], explored[1:])  # [1: to remove 'start']
+
+
+def breadth_fs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], int]) -> (list, list):
+    """Iterative Breadth-First Search. Nodes are explored using a queue."""
+    frontier = Queue()  # nodes to be explored
+    prev_node = dict()  # maps n to node that precedes it in cheapest currently-known path from start to n
+    explored = []  # keeps track of previously explored nodes, to be drawn later
 
     prev_node[start] = None
-    current = start
-    neighbors = []
+    frontier.put(start)
 
-    neighbors = PriorityQueue()
-    while current != goal: # or all have been visited
+    while not frontier.empty():
+        current = frontier.get()
         grid.set_cell(current, Cell(val = CellType.searched))
+        
+        for neighbor in grid.get_unexplored_neighbors(current):
+            prev_node[neighbor] = current
+            frontier.put(neighbor)
+            explored.append(neighbor)
+            if neighbor == goal:
+                return (reconstruct_path(goal, prev_node), explored)
 
-        for neighbor in grid.get_neighbors(current):
-            if neighbor not in prev_node:
-                dist_from_goal = heuristic(neighbor, goal)
-                neighbors.put(neighbor, dist_from_goal)
-        if neighbors.empty():
-            return None
-        else:
-            best_neighbor = neighbors.get()
-        neighbors.clear()
+            grid.set_cell(neighbor, Cell(val = CellType.searched))
 
-        prev_node[best_neighbor] = current
-        current = best_neighbor
+    # If frontier empty but goal was never reached, no solution was found
+    return ([], explored)
+    
+def depth_fs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], int]) -> (list, list):
+    """Iterative Depth-First Search. Nodes are explored using a stack."""
+    frontier = Stack()
+    prev_node = dict()
+    explored = []
 
-    return reconstruct_path(goal, prev_node)
+    frontier.put(start)
+    prev_node[start] = None
+
+    while not frontier.empty():
+        current = frontier.get()
+        
+        if current == goal:
+            return (reconstruct_path(goal, prev_node), explored[1:])  # [1:] to remove start from list
+
+        grid.set_cell(current, Cell(val = CellType.searched))
+        explored.append(current)
+
+        for neighbor in grid.get_unexplored_neighbors(current):
+            prev_node[neighbor] = current
+            frontier.put(neighbor)
+
+                # grid.set_cell(neighbor, Cell(val = CellType.searched))
+    
+    # If frontier empty but goal was never reached, no solution was found
+    return ([], explored[1:])  # [1:] to remove start from list
