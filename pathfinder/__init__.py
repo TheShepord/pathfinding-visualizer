@@ -58,3 +58,67 @@ class PriorityQueue:
     
     def clear(self) -> None:
         self.heap.clear()
+
+
+class Node:
+    def __init__(self, val):
+        self.val = val
+        self.link = None
+
+class Stack:
+    def __init__(self):
+        self.top = None
+    
+    def put(self, val):
+        if self.top:
+            new_top = Node(val)
+            new_top.link = self.top
+            self.top = new_top
+        else:
+            self.top = Node(val)
+        
+    def get(self):
+        if self.top:
+            top_val = self.top.val
+            self.top = self.top.link
+            return top_val
+        else:
+            return None
+    
+    def empty(self):
+        if self.top:
+            return False
+        else:
+            return True
+            
+
+class Queue:
+    def __init__(self):
+        self.head = None
+        self.tail = None
+    
+    def put(self, val):
+        if self.tail:
+            prev_tail = self.tail
+            self.tail = Node(val)
+            prev_tail.link = self.tail
+        else:
+            new_node = Node(val)
+            self.tail = new_node
+            self.head = new_node
+
+    def get(self):
+        if self.head:
+            head_val = self.head.val
+            self.head = self.head.link
+            if self.head == None:
+                self.tail = None
+            return head_val
+        else:
+            return None
+    
+    def empty(self):
+        if self.head:
+            return False
+        else:
+            return True
