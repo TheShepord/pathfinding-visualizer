@@ -4,7 +4,7 @@ import threading
 
 # Third party imports
 import numpy as np
-from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsObject
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsObject, QGraphicsItem
 from PyQt5.QtCore import QRect, QRectF, Qt, QMargins, QPropertyAnimation
 from PyQt5.QtGui import QPen, QColor, QBrush, QMouseEvent, QPainter
 
@@ -12,7 +12,7 @@ from PyQt5.QtGui import QPen, QColor, QBrush, QMouseEvent, QPainter
 from . import Config, CellType, Cell, Vector2D, PriorityQueue
 
 def in_bounds(coord: Vector2D) -> bool:
-    """Returns whether a given coordinate is within the bounds of the screen"""
+    """Returns whether a given coordinate is within bounds of the grid"""
     return (0 <= coord.x < Config.NUM_CELLS_X) and (0 <= coord.y < Config.NUM_CELLS_Y)
 
 class RectObject(QGraphicsObject):
@@ -69,9 +69,9 @@ class Scene(QGraphicsScene):
         if Config.DIAGONALS:
             self.neighbor_steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]])
         else:
-            self.neighbor_steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0]])
+            self.neighbor_steps = np.array([[-1, 0], [0, 1], [1, 0], [0, -1]])
                 
-    def get_neighbors(self, cell: Vector2D) -> list:
+    def get_unexplored_neighbors(self, cell: Vector2D) -> list:
         """Return neighbors to Vector2D inside the scene"""
         result = []
         
@@ -81,7 +81,7 @@ class Scene(QGraphicsScene):
             neighbor = step + curr_cell
             neighbor = Vector2D(x = neighbor[0], y = neighbor[1])
 
-            if in_bounds(neighbor) and not self.is_barrier(neighbor):
+            if in_bounds(neighbor) and not self.is_barrier(neighbor) and self.cell_type(neighbor) != CellType.searched:
                 result.append(neighbor)
 
         return result
@@ -157,16 +157,20 @@ class Scene(QGraphicsScene):
 
     def animate_rect(self, x: int, y: int, w: int, h: int, pen: QPen, brush: QBrush, duration: float = 0.125, n_steps: float = 16) -> list:
         """Creates RectObject that transposes from dimensions 0 x 0 to 'w' x 'h' in 'n_steps' steps over the course of 'duration' seconds"""
-        scale = 0.0
+        rect = RectObject(x, y, w, h, pen, brush)
+        rect.setScale(0.0)
+        self.addItem(rect)
 
         time_step = duration / n_steps
         scale_step = 1.0 / n_steps
-
+        scale = 0.0
+        
         while scale <= 1.0:
-            rect = RectObject(x + w/2*(1-scale), y + h/2*(1-scale), w*scale, h*scale, pen, brush)
-            self.addItem(rect)
+            rect.setScale(scale)
             sleep(time_step)
             scale += scale_step
+            self.update()  # this fixes random issue where drawing completely hangs
+        
 
     def repaint_cells(self) -> None:
         """Repaints all cells"""
@@ -185,21 +189,15 @@ class Scene(QGraphicsScene):
                     self.set_cell(Vector2D(x,y), Cell(val = CellType.empty))
                     self.color_cell(Vector2D(x,y))
 
-    def draw_explored(self, explored: list, animate: bool = False):
-        for current_cell in explored:
-            if self.cell_type(current_cell) not in (CellType.goal, CellType.start):
-                self.set_cell(current_cell, Cell(val = CellType.searched))
-                self.color_cell(current_cell, animate)
-                sleep(0.03125)
-
-    def draw_path(self, path: list, prev_thread: threading.Thread = None, animate: bool = False) -> None:
-        if prev_thread:
+    def draw_cell_sequence(self, cell_sequence: list, cell_type: CellType, animate: bool = False, prev_thread: threading.Thread = None):
+        if prev_thread:  # supports waiting for a previous animation
             prev_thread.join()
 
-        for current_cell in path:
-            self.set_cell(current_cell, Cell(val = CellType.path))
-            self.color_cell(current_cell, animate)
-            sleep(0.03125)
+        for current_cell in cell_sequence:
+            if self.cell_type(current_cell) not in (CellType.goal, CellType.start):
+                self.set_cell(current_cell, Cell(val = cell_type))
+                self.color_cell(current_cell, animate)
+                sleep(0.03125)
 
 
 class View(QGraphicsView):
@@ -222,7 +220,8 @@ class View(QGraphicsView):
         """If user clicked, they're either drawing a barrier, removing a barrier, wanting to move start, or wanting to move goal"""
         x = event.x() // Config.CELL_LENGTH
         y = event.y() // Config.CELL_LENGTH
-
+        self.scene().clear_path()
+        
         if self.scene().cell_type(Vector2D(x,y)) == CellType.empty:
             # If user clicked on an empty cell, they're trying to draw barriers
             self.painting_cell = CellType.barrier
