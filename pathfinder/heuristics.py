@@ -1,3 +1,5 @@
+# implements the heuristics used by certain pathfinding algorithms
+
 # Standard library imports
 from math import sqrt
 

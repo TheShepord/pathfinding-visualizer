@@ -1,3 +1,5 @@
+# implements various data structures and configuration settings used by pathfinding-visualizer.py
+
 # Standard library imports
 import heapq
 from typing import NamedTuple
@@ -68,6 +70,7 @@ class Node:
 
 
 class Stack:
+    """LIFO data structure implemented in linked-list fashion"""
     def __init__(self):
         self.top = None
     
@@ -95,6 +98,7 @@ class Stack:
 
 
 class Queue:
+    """FIFO data structure implemented in linked-list fashion"""
     def __init__(self):
         self.head = None
         self.tail = None

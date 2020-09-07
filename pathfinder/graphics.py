@@ -1,3 +1,5 @@
+# re-implements QGraphicsScene and QGraphicsView to allow drawing and manipulating a grid by pathfinding-visualizer.py
+
 # Standard library imports
 from time import sleep
 import threading
@@ -16,7 +18,6 @@ def in_bounds(coord: Vector2D) -> bool:
     return (0 <= coord.x < Config.NUM_CELLS_X) and (0 <= coord.y < Config.NUM_CELLS_Y)
 
 class RectObject(QGraphicsObject):
-    """"""
     def __init__(self, x, y, w, h, pen, brush):
         super().__init__()
 
@@ -37,8 +38,6 @@ class Scene(QGraphicsScene):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # self.c = Communicate()
-        # self.c.cell_traversed.connect(self.color_cell)
         # initialize 2D grid of cell data
         self.cells = { (i,j): Cell(val = CellType.empty) for i in range(Config.NUM_CELLS_X) for j in range(Config.NUM_CELLS_Y) }
         self.animations = dict()
@@ -58,11 +57,6 @@ class Scene(QGraphicsScene):
             self.addItem(self.display_text)
         else:
             self.addItem(self.display_text)
-            
-        # self.addItem(self.display_text)
-        
-        # self.removeItem(self.display_text)
-        # self.addItem(self.display_text)
         
     def set_text_log(self, s: str) -> None:
         self.display_text.setText(s)
@@ -75,11 +69,6 @@ class Scene(QGraphicsScene):
 
         self.set_cell(self.start, Cell(val = CellType.start))
         self.set_cell(self.goal, Cell(val = CellType.goal))
-        
-        # print([x for x in self.cells if Cell(val = CellType.start) in x])
-        
-        # self.color_cell(self.start, Pallete.start)
-        # self.color_cell(self.goal, Pallete.goal)
     
     def set_diagonal(self) -> None:
         """Generates array of possible moves based on Config.DIAGONALS"""
@@ -120,7 +109,7 @@ class Scene(QGraphicsScene):
         return self.cells[coord].val
 
     def draw_grid(self) -> None:
-        """Draws """
+        """Draws NUM_CELLS_X by NUM_CELLS_Y grid"""
         width = Config.CELL_LENGTH * Config.NUM_CELLS_X
         height = Config.CELL_LENGTH * Config.NUM_CELLS_Y
         self.setSceneRect(0, 0, width, height)
@@ -206,6 +195,10 @@ class Scene(QGraphicsScene):
                     self.color_cell(Vector2D(x,y))
 
     def draw_cell_sequence(self, cell_sequence: list, cell_type: CellType, animate: bool = False, prev_thread: threading.Thread = None):
+        """
+        Draws a sequence of cells and sets them to a given type. If 'animate', animate cells.
+        If 'prev_thread', wait for 'prev_thread' before beginning to draw cells
+        """
         if prev_thread:  # supports waiting for a previous animation
             prev_thread.join()
 

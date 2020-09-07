@@ -1,3 +1,5 @@
+# implements the pathfinding algorithms used in pathfinding-visualizer.py
+
 # Standard library imports
 from typing import Callable
 
@@ -18,16 +20,6 @@ def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
     path = path[:-1]  # remove 'start' from path
     path.reverse()
     return path
-
-def get_best_node(nodes: list, goal: Vector2D, heuristic: Callable[[Vector2D, Vector2D], float]):
-    selector = PriorityQueue()
-    for node in nodes:
-        dist_from_goal = heuristic(node, goal)
-        selector.put(node, dist_from_goal)
-    if selector.empty():
-        return None
-    else:
-        return(selector.get())
 
 def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> (list, list):
     """

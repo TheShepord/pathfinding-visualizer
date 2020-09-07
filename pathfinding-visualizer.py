@@ -1,3 +1,5 @@
+# Implements the main application window and communicates with pathfinder modules
+
 # Standard library imports
 import sys
 from typing import Callable
@@ -16,81 +18,100 @@ import pathfinder.algorithms as algorithm
 from pathfinder.graphics import Scene, View
 
 
-# def flatten(list_of_lists: list) -> list:
-#     """Returns flattened list of lists"""
-#     return [y for x in list_of_lists for y in x]
-
-
 class Layout(QVBoxLayout):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.heuristic = heuristics.manhattan # Default heuristic
+        
+        self.init_menubar()
+        self.connect_actions()
+
+        # Generates QGraphicsScene and attaches it to QGraphicsView
+        self.scene = Scene()
+        view = View(self.scene)
+        self.addWidget(view)
+
+        # Threads to be used for drawing tiles sequentially
+        self.draw_explored = threading.Thread()
+        self.draw_result = threading.Thread()
+    
+    def init_menubar(self) -> None:
         # Adding menubar
         self.menubar = QMenuBar()
-        
+
         # Algorithms widget
         self.algorithm_button = self.menubar.addMenu("Algorithm")
-        self.action_a_star = QAction("A*", self)
-        self.action_a_star.triggered.connect(lambda: self.execute(algorithm.a_star))
-        self.algorithm_button.addAction(self.action_a_star)
+        self.action_a_star = QAction("A* Search", self)
         self.action_dijkstra= QAction("Dijkstra", self)
-        self.action_dijkstra.triggered.connect(lambda: self.execute(algorithm.dijkstra))
-        self.algorithm_button.addAction(self.action_dijkstra)
         self.action_greedy_bfs = QAction("Greedy BFS", self)
-        self.action_greedy_bfs.triggered.connect(lambda: self.execute(algorithm.greedy_bfs))
-        self.algorithm_button.addAction(self.action_greedy_bfs)
         self.action_breadth_fs = QAction("Breadth-First Search", self)
-        self.action_breadth_fs.triggered.connect(lambda: self.execute(algorithm.breadth_fs))
-        self.algorithm_button.addAction(self.action_breadth_fs)
         self.action_depth_fs = QAction("Depth-First Search", self)
-        self.action_depth_fs.triggered.connect(lambda: self.execute(algorithm.depth_fs))
-        self.algorithm_button.addAction(self.action_depth_fs)
-        
-        self.heuristic = heuristics.manhattan # Default heuristic
 
         # Heuristics widget
         self.heuristics_button = self.menubar.addMenu("Heuristic")
         self.action_manhattan = QAction("Manhattan", self)
+        self.action_euclidean = QAction("Euclidean", self)
+        self.action_chebyshev = QAction("Chebyshev", self)
+        self.action_octile = QAction("Octile", self)
+
+        # Options widget
+        self.options_button = self.menubar.addMenu("Options")
+        self.action_diagonals = QAction("Use diagonals", self)
+
+        self.addWidget(self.menubar)
+
+    def connect_actions(self) -> None:
+        # ===Algorithm Widget===
+        # Algorithm: A* Search
+        self.action_a_star.triggered.connect(lambda: self.execute(algorithm.a_star))
+        self.algorithm_button.addAction(self.action_a_star)
+        # Algorithm: Dijkstra
+        self.action_dijkstra.triggered.connect(lambda: self.execute(algorithm.dijkstra))
+        self.algorithm_button.addAction(self.action_dijkstra)
+        # Algorithm: Greedy Best-First Search
+        self.action_greedy_bfs.triggered.connect(lambda: self.execute(algorithm.greedy_bfs))
+        self.algorithm_button.addAction(self.action_greedy_bfs)
+        # Algorithm: Breadth-First Search
+        self.action_breadth_fs.triggered.connect(lambda: self.execute(algorithm.breadth_fs))
+        self.algorithm_button.addAction(self.action_breadth_fs)
+        # Algorithm: Depth-First Search
+        self.action_depth_fs.triggered.connect(lambda: self.execute(algorithm.depth_fs))
+        self.algorithm_button.addAction(self.action_depth_fs)
+        
+        # ===Heuristics Widget===
+        # Heuristic: Manhattan
         self.action_manhattan.setCheckable(True)
-        self.action_manhattan.setChecked(True)
+        self.action_manhattan.setChecked(True)  # starts checked, default heuristic
         self.action_manhattan.triggered.connect(
             lambda: self.heuristic_button_clicked(heuristics.manhattan, self.action_manhattan)
         )
         self.heuristics_button.addAction(self.action_manhattan)
-        self.action_euclidean = QAction("Euclidean", self)
+        # Heuristic: Euclidean
         self.action_euclidean.setCheckable(True)
         self.action_euclidean.triggered.connect(
             lambda: self.heuristic_button_clicked(heuristics.euclidean, self.action_euclidean)
         )
         self.heuristics_button.addAction(self.action_euclidean)
-        self.action_chebyshev = QAction("Chebyshev", self)
+        # Heuristic: Chebyshev
         self.action_chebyshev.setCheckable(True)
         self.action_chebyshev.triggered.connect(
             lambda: self.heuristic_button_clicked(heuristics.chebyshev, self.action_chebyshev)
         )
         self.heuristics_button.addAction(self.action_chebyshev)
-        self.action_octile = QAction("Octile", self)
+        # Heuristic: Octile
         self.action_octile.setCheckable(True)
         self.action_octile.triggered.connect(
             lambda: self.heuristic_button_clicked(heuristics.octile, self.action_octile)
         )
         self.heuristics_button.addAction(self.action_octile)
         
-        self.options_button = self.menubar.addMenu("Options")
-        self.action_diagonals = QAction("Use diagonals", self)
+        # ===Options Widget===
+        # Option: use diagonals
         self.action_diagonals.setCheckable(True)
         self.action_diagonals.triggered.connect(self.diagonals_button_clicked)
         self.options_button.addAction(self.action_diagonals)
-
-        self.addWidget(self.menubar)
-
-        self.scene = Scene()
-        view = View(self.scene)
-        self.addWidget(view)
-
-        self.draw_explored = threading.Thread()
-        self.draw_result = threading.Thread()
-        
+    
     def execute(self, pathfinder: Callable) -> None:
         """Executes given pathfinding algorithm using currently-selected heuristic, drawing tiles"""
         if not self.draw_explored.is_alive() and not self.draw_result.is_alive():
@@ -129,6 +150,7 @@ class Layout(QVBoxLayout):
             self.scene.color_cell(self.scene.goal)
 
     def heuristic_button_clicked(self, heuristic: Callable, caller: QAction):
+        """When heuristic button clicked, set self.heuristic to heuristic and untick others"""
         self.heuristic = heuristic
 
         for action in self.heuristics_button.actions():
@@ -136,6 +158,7 @@ class Layout(QVBoxLayout):
                 action.setChecked(False)
 
     def diagonals_button_clicked(self):
+        """When diagonals button clicked, activate/deactivate diagonals"""
         if self.action_diagonals.isChecked():
             Config.DIAGONALS = True
             self.scene.set_diagonal()
@@ -152,7 +175,7 @@ class Window(QWidget):
         self.setSizeIncrement(Config.CELL_LENGTH, Config.CELL_LENGTH)
 
     def resizeEvent(self, event):
-
+        """QWidget.resizeEvent overload, changes grid dimensions"""
         # gets nearest width/height divisible by cell length
         nearest_w = event.size().width() // Config.CELL_LENGTH
         nearest_h = event.size().height() // Config.CELL_LENGTH - 1
@@ -161,15 +184,13 @@ class Window(QWidget):
         Config.NUM_CELLS_Y = nearest_h
         layout.scene.resize_update()
 
-
-
 if __name__ == '__main__':
-    
+    # QApplication is necessary for PyQt to run
     app = QApplication(sys.argv)
 
     layout = Layout()
-    
-    w = Window(layout)
+    w = Window(layout)  # Give Window the specified layout
     w.show()
-    
+
+    # Initialize PyQt event loop
     sys.exit(app.exec_())
