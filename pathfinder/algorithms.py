@@ -23,7 +23,8 @@ def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
 
 def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> (list, list):
     """
-    A* Search. Weighted, always optimal given an admissible heurisitic.
+    A* Search. Searches nodes based on f(n) = cost_so_far(n) + heuristic(n).
+    Weighted, always optimal given an admissible heurisitic.
     Uses modified version of the original A* algorithm (LINK). These changes are:
     - Not removing node from frontier if a better path to it is found.
         Motivation: saves on computation (search in priority queue) while still behaving similarly to the original A*.
@@ -31,12 +32,14 @@ def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Ve
         Motivation: space complexity increases O(width x height / cell_dimensions) in a square grid
     - Using the heuristic as a tie-breaker for equally-valued nodes.
         Motivation: prevents exploring equally-appealing nodes when one is (according to heuristic) "closer" to goal
+    Possible heuristics h(n):
+    if h(n) = 0, A* becomes Dijkstra's Algorithm
+    if h(n) <= cost from n to goal, A* always optimal. The lower, the slower (more explored paths)
+    if h(n) = cost from n to goal, which isn't always possible, A* only follows the best path
+    if h(n) > cost from n to goal, not guaranteed to find shortest path, but can run faster than usual
+    if h(n) >> cost_so_far(n), A* basically becomes Greedy Best-First-Search
     """
-    # if h(n) = 0, A* becomes Dijkstra's Algorithm
-    # if h(n) <= cost from n to goal, A* always optimal. The lower, the slower (more explored paths)
-    # if h(n) = cost from n to goal, which isn't always possible, A* only follows the best path
-    # if h(n) >, not guaranteed to find shortest path, but can be faster
-    # if h(n) >> g(n), A* basically becomes Greedy Best-First-Search
+
 
     frontier = PriorityQueue()  # nodes to be explored
     expected_cost = heuristic(start, goal)  # estimate of cost to reach goal from current node
@@ -73,7 +76,8 @@ def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Ve
 
 def dijkstra(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, list):
     """
-    Dijkstra's algorithm. Weighted, always optimal given a.
+    Dijkstra's algorithm. Searches nodes by progressively getting further and further away from 'start'.
+    Weighted, always optimal.
     Special case of A* where heuristic = 0
     """
 
@@ -112,7 +116,7 @@ def dijkstra(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, list
 def greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> list:
     """
     Greedy Best-First Search. At every step, choose closest node according to heuristic.
-    Unweighted, not always optimal.
+    Weighted, not always optimal.
     Special case of A* where cost_so_far is negligible in relation to heuristic.
     """
     frontier = PriorityQueue()  # nodes to be explored
@@ -142,8 +146,8 @@ def greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable
 
 def breadth_fs(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, list):
     """
-    Iterative Breadth-First Search. Nodes are explored using a queue.
-    Unweighted, always optimal given an unweighted graph
+    Iterative Breadth-First Search. Nodes are progressively explored using a queue.
+    Unweighted, always optimal given an unweighted graph, not always optimal in a weighted graph.
     """
     frontier = Queue()  # nodes to be explored
     prev_node = dict()  # maps n to node that precedes it in cheapest currently-known path from start to n
@@ -170,8 +174,8 @@ def breadth_fs(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, li
     
 def depth_fs(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, list):
     """
-    Iterative Depth-First Search. Nodes are explored using a stack.
-    Unweighted, not always optimal
+    Iterative Depth-First Search. Nodes are [progressively explored using a stack.
+    Unweighted, not always optimal.
     """
     frontier = Stack()
     prev_node = dict()
