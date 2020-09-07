@@ -4,9 +4,9 @@ import threading
 
 # Third party imports
 import numpy as np
-from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsObject, QGraphicsItem
+from PyQt5.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsRectItem, QGraphicsObject, QGraphicsItem, QGraphicsSimpleTextItem
 from PyQt5.QtCore import QRect, QRectF, Qt, QMargins, QPropertyAnimation
-from PyQt5.QtGui import QPen, QColor, QBrush, QMouseEvent, QPainter
+from PyQt5.QtGui import QPen, QColor, QBrush, QMouseEvent, QPainter, QFont
 
 # Local application imports
 from . import Config, CellType, Cell, Vector2D, PriorityQueue
@@ -48,11 +48,28 @@ class Scene(QGraphicsScene):
         self.init_start_goal()
         self.set_diagonal()
         self.repaint_cells()
+        self.display_text = QGraphicsSimpleTextItem()
+        self.display_text.setPos(5, self.height() - 60)
+        self.display_text.setFont(QFont("Helvetica", 12, QFont.Bold))
+        
+    def drawForeground(self, *args, **kwargs):
+        if self.display_text in self.items():
+            self.removeItem(self.display_text)
+            self.addItem(self.display_text)
+        else:
+            self.addItem(self.display_text)
+            
+        # self.addItem(self.display_text)
+        
+        # self.removeItem(self.display_text)
+        # self.addItem(self.display_text)
+        
+    def set_text_log(self, s: str) -> None:
+        self.display_text.setText(s)
 
-
-    def init_start_goal(self):
+    def init_start_goal(self) -> None:
         """Initialize start and goal positions"""
-        height = (Config.NUM_CELLS_Y // 2) - 2
+        height = (Config.NUM_CELLS_Y // 2) - 1
         self.start = Vector2D(1, height)
         self.goal = Vector2D(Config.NUM_CELLS_X - 1, height)
 
@@ -67,7 +84,7 @@ class Scene(QGraphicsScene):
     def set_diagonal(self) -> None:
         """Generates array of possible moves based on Config.DIAGONALS"""
         if Config.DIAGONALS:
-            self.neighbor_steps = np.array([[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]])
+            self.neighbor_steps = np.array([[1, 1], [1, -1], [-1, 1], [-1, -1], [-1, 0], [0, 1], [1, 0], [0, -1]])
         else:
             self.neighbor_steps = np.array([[-1, 0], [0, 1], [1, 0], [0, -1]])
                 
@@ -107,15 +124,15 @@ class Scene(QGraphicsScene):
         width = Config.CELL_LENGTH * Config.NUM_CELLS_X
         height = Config.CELL_LENGTH * Config.NUM_CELLS_Y
         self.setSceneRect(0, 0, width, height)
-
+        pen = QPen(QColor(128, 128, 128), 1)
         # draw cells
         for x in range(0, Config.NUM_CELLS_X + 1):
             col = x * Config.CELL_LENGTH
-            self.addLine(col, 0, col, height)
+            self.addLine(col, 0, col, height, pen)
         
         for y in range(0, Config.NUM_CELLS_Y + 1):
             row = y * Config.CELL_LENGTH
-            self.addLine(0, row, width, row)
+            self.addLine(0, row, width, row, pen)
 
     def resize_update(self) -> None:
         """Resizes grid and keeps 'start' and 'goal' cells inside of view"""
@@ -170,7 +187,6 @@ class Scene(QGraphicsScene):
             sleep(time_step)
             scale += scale_step
             self.update()  # this fixes random issue where drawing completely hangs
-        
 
     def repaint_cells(self) -> None:
         """Repaints all cells"""

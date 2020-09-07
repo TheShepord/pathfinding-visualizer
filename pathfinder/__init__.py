@@ -14,6 +14,7 @@ class Config:
     HEURISTIC_WEIGHT = 1  # scalar multiplier for heuristic return value
     DIAGONALS = False  # can pathfinding move diagonally?
 
+
 class CellType:
     """Color to draw each object"""
     searched = QColor(0, 206, 209)
@@ -65,6 +66,7 @@ class Node:
         self.val = val
         self.link = None
 
+
 class Stack:
     def __init__(self):
         self.top = None
@@ -90,7 +92,7 @@ class Stack:
             return False
         else:
             return True
-            
+
 
 class Queue:
     def __init__(self):
