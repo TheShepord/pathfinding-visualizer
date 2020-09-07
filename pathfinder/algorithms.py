@@ -23,7 +23,7 @@ def reconstruct_path(goal: Vector2D, prev_node: dict) -> list:
 
 def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> (list, list):
     """
-    descripption bla bla. Always optimal etc
+    A* Search. Weighted, always optimal given an admissible heurisitic.
     Uses modified version of the original A* algorithm (LINK). These changes are:
     - Not removing node from frontier if a better path to it is found.
         Motivation: saves on computation (search in priority queue) while still behaving similarly to the original A*.
@@ -71,17 +71,11 @@ def a_star(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Ve
     # If frontier empty but goal was never reached, no solution was found
     return ([], explored)
 
-def dijkstra(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> (list, list):
+def dijkstra(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, list):
     """
-    descripption bla bla. Always optimal etc
-    Uses modified version of A* algorithm (LINK) that doesn't remove node from frontier if a better path is found. This saves on
-    computation while still behaving similarly to the original A*. Also uses heuristic as a tie-breaker
+    Dijkstra's algorithm. Weighted, always optimal given a.
+    Special case of A* where heuristic = 0
     """
-    # if h(n) = 0, A* becomes Dijkstra's Algorithm
-    # if h(n) <= cost from n to goal, A* always optimal. The lower, the slower (more explored paths)
-    # if h(n) = cost from n to goal, which isn't always possible, A* only follows the best path
-    # if h(n) >, not guaranteed to find shortest path, but can be faster
-    # if h(n) >> g(n), A* basically becomes Greedy Best-First-Search
 
     frontier = PriorityQueue()  # nodes to be explored
 
@@ -117,8 +111,9 @@ def dijkstra(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[
 
 def greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> list:
     """
-    Greedy Best-First Search
-    Essentially A* but cost_so_far is negligible in relation to heuristic.
+    Greedy Best-First Search. At every step, choose closest node according to heuristic.
+    Unweighted, not always optimal.
+    Special case of A* where cost_so_far is negligible in relation to heuristic.
     """
     frontier = PriorityQueue()  # nodes to be explored
     prev_node = dict()  # maps n to node that precedes it in cheapest currently-known path from start to n
@@ -145,8 +140,11 @@ def greedy_bfs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable
     return ([], explored[1:])  # [1: to remove 'start']
 
 
-def breadth_fs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> (list, list):
-    """Iterative Breadth-First Search. Nodes are explored using a queue."""
+def breadth_fs(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, list):
+    """
+    Iterative Breadth-First Search. Nodes are explored using a queue.
+    Unweighted, always optimal given an unweighted graph
+    """
     frontier = Queue()  # nodes to be explored
     prev_node = dict()  # maps n to node that precedes it in cheapest currently-known path from start to n
     explored = []  # keeps track of previously explored nodes, to be drawn later
@@ -170,8 +168,11 @@ def breadth_fs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable
     # If frontier empty but goal was never reached, no solution was found
     return ([], explored)
     
-def depth_fs(start: Vector2D, goal: Vector2D, grid: Scene, heuristic: Callable[[Vector2D, Vector2D], float]) -> (list, list):
-    """Iterative Depth-First Search. Nodes are explored using a stack."""
+def depth_fs(start: Vector2D, goal: Vector2D, grid: Scene, *args) -> (list, list):
+    """
+    Iterative Depth-First Search. Nodes are explored using a stack.
+    Unweighted, not always optimal
+    """
     frontier = Stack()
     prev_node = dict()
     explored = []
