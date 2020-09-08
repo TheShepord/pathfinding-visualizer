@@ -4,7 +4,8 @@
 
 Grid-based visualizer for popular pathfinding algorithms. Written in Python, with PyQt5 for rendering and UI.
 
-[![GIF overviewing pathfinding-visualizer's features](https://github.com/TheShepord/pathfinding-visualizer/blob/master/docs/images/pathfinding-overview.gif)]
+![GIF overviewing pathfinding-visualizer's features](https://github.com/TheShepord/pathfinding-visualizer/blob/master/docs/images/pathfinding-overview.gif)
+* Left-click on empty tiles to begin drawing barriers, left-click on barriers to begin erasing barriers. Left-click on start or goal to drag them around. Select different algorithms and heuristics using the menubar.*
 
 ## Implementation
 
@@ -35,8 +36,6 @@ Grid-based visualizer for popular pathfinding algorithms. Written in Python, wit
 
 `$ cd <path of project install>`
 `$ python3 pathfinding-visualizer.py`
-
-Left-click on empty tiles to begin drawing barriers, left-click on barriers to begin erasing barriers. Left-click on start or goal to drag them around. Select different algorithms and heuristics using the toolbar.
 
 ## Upcoming Features
 
