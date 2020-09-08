@@ -2,7 +2,9 @@
 
 [![Github license](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square)](https://github.com/TheShepord/pathfinding-visualizer/blob/master/LICENSE)
 
-Grid-based visualizer for popular pathfinding algorithms. Written in Python, with PyQt5 for rendering and UI. As of latest commit, supports A*, Dijkstra, Greedy BFS, Breadth-First Search and Depth-First Search.
+Grid-based visualizer for popular pathfinding algorithms. Written in Python, with PyQt5 for rendering and UI.
+
+[![GIF overviewing pathfinding-visualizer's features](https://github.com/TheShepord/pathfinding-visualizer/blob/master/docs/images/pathfinding-overview.gif)]
 
 ## Implementation
 
@@ -49,3 +51,4 @@ Left-click on empty tiles to begin drawing barriers, left-click on barriers to b
 *License*: This project is released under the [MIT License](https://github.com/TheShepord/pathfinding-visualizer/blob/master/LICENSE).
 
 *References*:
+* [Amit's A* Pages](http://theory.stanford.edu/~amitp/GameProgramming/index.html)
